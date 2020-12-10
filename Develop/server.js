@@ -1,76 +1,132 @@
-// ==============================================================================
-// DEPENDENCIES
-// Series of npm packages that we will use to give our server useful functionality
-// ==============================================================================
+// Dependencies
+// ===========================================================
+const fs = require("fs");
+const express = require("express");
+//const { response } = require("express");
 
-var express = require("express");
-var tableData = require("./db/db");
-var fs = require("fs");
-var path = require("path");
+const bodyParser = require("body-parser");
+const db = require("./db/db.json");
 
-// ==============================================================================
-// EXPRESS CONFIGURATION
-// This sets up the basic properties for our express server
-// ==============================================================================
+// Sets up the Express App
+// =============================================================
+const server = express();
+const SERVER_PORT = process.env.PORT || 2020;
 
-// Tells node that we are creating an "express" server
-var app = express();
+const jsonParser = bodyParser.json();
 
-// Sets an initial port. We"ll use this later in our listener
-var PORT = process.env.PORT || 8080;
+// server.use(express.bodyParser());
+server.use(express.static(__dirname + '/public'));
 
 // Sets up the Express app to handle data parsing
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-app.use(express.static('public'))
+server.use(express.urlencoded({ extended: true }));
+server.use(express.json());
 
-// ================================================================================
-// ROUTER
-// The below points our server to a series of "route" files.
-// These routes give our server a "map" of how to respond when users visit or request data from various URLs.
-// ================================================================================
 
-app.get("/notes", function (req, res) {
-    res.sendFile(path.join(__dirname, "/public/notes.html"));
+
+// Routes
+// ===========================================================
+
+// Ensure that you have at least one HTML page being served at the "/" route.
+server.get("/", function (req, res) {
+    res.json(path.join(__dirname, "public/index.html"));
 });
 
-app.get("*", function (req, res) {
-    res.sendFile(path.join(__dirname, "/public/index.html"));
+// GET `/api/notes` - Should read the `db.json` file and return all saved notes as JSON.
+server.get("/api/notes", (request, response) => {
+    fs.readFile("./db/db.json", "utf8", (error, data) => {
+        response.send(JSON.parse(data));
+    })
+
 });
 
-app.get("/api/notes", function (req, res) {
-    res.sendFile(path.join(__dirname, "./db/db.json"));
+
+// POST `/api/notes` - Should receive a new note to save on the request body, 
+// add it to the `db.json` file, and then return the new note to the client.
+
+// DATE and TIME will give each note a unique `id` when it's saved.
+server.post("/api/notes", jsonParser, (request, response) => {
+
+    // receive a new note to save on the request body
+    const note = request.body;
+    console.log(note);
+
+    // READ the current `db.json` file
+    fs.readFile("./db/db.json", "utf8", (error, data) => {
+        let dbNotes = JSON.parse(data);
+
+        // Use .getTime() method to assign a new id to the new note
+        note.id = (new Date()).getTime();
+
+        // ADD the new note to the dbNotes array of objects
+        dbNotes.push(note);
+
+        // Log updated dbNotes array of objects
+        console.log(dbNotes);
+
+        // SAVE updated db.json contents
+        fs.writeFile("./db/db.json", JSON.stringify(dbNotes), function (err) {
+            if (err) {
+                return console.log(err);
+            }
+            // Log success message
+            console.log("The db.json was updated with a new note!");
+        });
+
+        // RETURN the new note back to the client.
+        // response.send(data);
+        response.send(note);
+    })
+
 });
 
-app.post("/api/notes", function (req, res) {
-    let newID = tableData.length + 1;
-    let newNote = req.body;
-    let notes = JSON.parse(fs.readFileSync("./db/db.json", "utf8"));
-    newNote.id = newID;
-    notes.push(newNote);
-    fs.writeFileSync("./db/db.json", JSON.stringify(notes));
-    res.json(newNote);
+
+server.delete("/api/notes/:id", (request, response) => {
+
+    // read all notes from the `db.json` file, 
+    fs.readFile("./db/db.json", "utf8", (error, data) => {
+        let dbNotes = JSON.parse(data);
+
+        // REMOVE the existing note that matches the id provided
+        dbNotes = dbNotes.filter(note => note.id !== parseInt(request.params.id));
+
+        // Show resulting db.json contents
+        console.log(dbNotes);
+
+        // REWRITE the notes to the `db.json` file.
+        fs.writeFile("./db/db.json", JSON.stringify(dbNotes), function (err) {
+            if (err) {
+                return console.log(err);
+            }
+            // Log success message
+            console.log("The db.json was updated due to a deleted note!");
+        });
+        response.send(dbNotes);
+    })
+
 });
 
-app.delete("/api/notes/:id", function (req, res) {
-    let id = req.params.id;
-    let notes = JSON.parse(fs.readFileSync("./db/db.json", "utf8"));
-    notes = notes.filter(e => {
-        return e.id != id;
-    });
-    let newID = 0;
-    for(note of notes) {
-        note.id = newID.toString();
-        newID++; 
-    }
-    fs.writeFileSync("./db/db.json", JSON.stringify(notes));
-    res.json(notes);
-});
-// =============================================================================
-// LISTENER
-// The below code effectively "starts" our server
-// =============================================================================
+// GET `/notes` - Should return the `notes.html` file.
+server.get("/notes", (request, response) => {
+    fs.readFile("./public/notes.html", "utf8", (error, data) => {
+        response.send(data);
+    })
 
-app.listen(PORT, function () {
-    console.log("App listening on PORT: " + PORT);
 });
+
+//GET `*` - Should return the `index.html` file
+server.get("*", (request, response) => {
+    fs.readFile("./public/index.html", "utf8", (error, data) => {
+        response.send(data);
+    })
+
+});
+
+
+// Listener
+// ===========================================================
+
+server.listen(SERVER_PORT, () => {
+    console.log(`The server is listening on port ${SERVER_PORT}`);
+});
+
+

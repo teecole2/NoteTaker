@@ -14,11 +14,14 @@ const getNotes = () => {
     method: "GET",
   });
 };
+
 // A function for saving a note to the db
 const saveNote = (note) => {
+  console.log(note);
   return $.ajax({
     url: "/api/notes",
-    data: note,
+    data: JSON.stringify(note),
+    contentType: "application/json",
     method: "POST",
   });
 };
@@ -84,7 +87,7 @@ const handleNoteView = function () {
   renderActiveNote();
 };
 
-// Sets the activeNote to and empty object and allows the user to enter a new note
+// Sets the activeNote to an empty object and allows the user to enter a new note
 const handleNewNoteView = function () {
   activeNote = {};
   renderActiveNote();
@@ -100,7 +103,7 @@ const handleRenderSaveBtn = function () {
   }
 };
 
-// Render's the list of note titles
+// Renders the list of note titles
 const renderNoteList = (notes) => {
   $noteList.empty();
 
@@ -125,6 +128,9 @@ const renderNoteList = (notes) => {
   if (notes.length === 0) {
     noteListItems.push(create$li("No saved Notes", false));
   }
+
+  //notes = JSON.parse(notes);
+  //console.log(notes);
 
   notes.forEach((note) => {
     const $li = create$li(note.title).data(note);
